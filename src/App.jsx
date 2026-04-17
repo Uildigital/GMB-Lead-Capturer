@@ -128,6 +128,8 @@ function App() {
     } finally {
       setSearching(false)
     }
+  }
+
   const updateLeadStatus = async (id, newStatus) => {
     // Atualização otimista na UI (antes mesmo de salvar no banco) para ficar super rápido
     setLeads(leads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead))
