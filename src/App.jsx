@@ -196,9 +196,13 @@ function App() {
   // Filtragem dos Leads na view (Pesquisa e Status)
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
-      const matchSearch = lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          lead.niche?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchStatus = statusFilter === 'Todos' || (lead.status || 'Novo') === statusFilter;
+      // Lógica de Status: Se o filtro for 'Todos', esconde os 'Descartados' para limpar o visual.
+      // Se o usuário selecionar especificamente 'Descartado', aí sim eles aparecem.
+      const leadStatus = lead.status || 'Novo';
+      const matchStatus = statusFilter === 'Todos' 
+        ? leadStatus !== 'Descartado' 
+        : leadStatus === statusFilter;
+
       const currentNiche = lead.niche?.trim() || 'Não Classificado';
       const matchNiche = nicheFilter === 'Todos' || currentNiche === nicheFilter;
       return matchSearch && matchStatus && matchNiche;
@@ -334,14 +338,17 @@ function App() {
                 onChange={e => setNicheFilter(e.target.value)}
                 style={{ 
                   border: 'none', 
-                  background: 'transparent',
-                  color: 'white', // Texto do campo fechado
-                  cursor: 'pointer'
+                  background: 'rgba(255,255,255,0.1)', // Um pouco mais de fundo para contraste
+                  color: 'white',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  appearance: 'auto' // Força o estilo nativo que costuma respeitar cores de sistema
                 }}
               >
-                <option value="Todos" style={{ color: '#333' }}>Todos os Nichos ({leads.length})</option>
+                <option value="Todos" style={{ color: 'black', background: 'white' }}>Todos os Nichos ({leads.length})</option>
                 {uniqueNichesInDatabase.map(n => (
-                  <option key={n.name} value={n.name} style={{ color: '#333' }}>
+                  <option key={n.name} value={n.name} style={{ color: 'black', background: 'white' }}>
                     {n.displayName} ({n.count})
                   </option>
                 ))}
