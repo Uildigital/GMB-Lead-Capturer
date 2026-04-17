@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, MapPin, Globe, Star, Users, Briefcase, Plus, Loader2, AlertCircle, MessageCircle, Instagram, Facebook, Link as LinkIcon, Filter } from 'lucide-react'
+import { Search, MapPin, Globe, Star, Users, Briefcase, Plus, Loader2, AlertCircle, MessageCircle, Instagram, Facebook, Link as LinkIcon, Filter, Phone } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // Inicialização do Supabase usando variáveis de ambiente (Seguro para Produção)
@@ -435,9 +435,16 @@ function App() {
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <MapPin size={14} />
-                        <span>{lead.city}, {lead.state}</span>
+                        <MapPin size={14} style={{ flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.85rem' }}>{lead.address || `${lead.city}, ${lead.state}`}</span>
                       </div>
+
+                      {lead.phone && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
+                          <Phone size={14} style={{ flexShrink: 0 }} />
+                          <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>{lead.phone}</span>
+                        </div>
+                      )}
                       
                       {lead.website && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
