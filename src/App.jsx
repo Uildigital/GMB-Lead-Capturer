@@ -3,13 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 import { Search, MapPin, Globe, Star, Users, Briefcase, Plus, Loader2, AlertCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// Inicialização do Supabase usando as variáveis do nosso .env
-const supabaseUrl = 'https://rfbhxrljicgcpzxmmpie.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmYmh4cmxqaWNnY3B6eG1tcGllIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjI5Nzg5OSwiZXhwIjoyMDkxODczODk5fQ.y6ZtxZdsKbx4WxxWRbJ7CPXSe-0698ChXAsLc787xZg'
+// Inicialização do Supabase usando variáveis de ambiente (Seguro para Produção)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// URL do n8n Webhook (Caminho que definiremos no n8n)
-const N8N_WEBHOOK_URL = 'https://n8n.raceroi.com.br/webhook/gmb-leads-trigger'
+// URL do n8n Webhook (Configurável via ENV)
+const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL
 
 function App() {
   const [leads, setLeads] = useState([])
