@@ -16,7 +16,6 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [scrapingProgress, setScrapingProgress] = useState(false)
-  const [initialLeadsCount, setInitialLeadsCount] = useState(0)
   const [filters, setFilters] = useState({
     niche: '',
     city: '',
@@ -24,41 +23,46 @@ function App() {
     region: ''
   })
 
-  // Hook para buscar leads no backend
-  const fetchLeads = async (isBackgroundPolling = false) => {
-    if (!isBackgroundPolling) setLoading(true)
+  // Função para buscar leads iniciais
+  const fetchLeads = async () => {
+    setLoading(true)
     const { data, error } = await supabase
       .from('gmb_leads')
       .select('*')
       .order('created_at', { ascending: false })
     
-    if (data) {
-      setLeads(data)
-      if (!isBackgroundPolling) setInitialLeadsCount(data.length)
-      
-      // Se estamos fazendo polling (esperando o scraper) e os leads aumentaram, quer dizer que terminou!
-      if (isBackgroundPolling && data.length > initialLeadsCount) {
-        setScrapingProgress(false)
-        setInitialLeadsCount(data.length)
-      }
-    }
-    if (!isBackgroundPolling) setLoading(false)
+    if (data) setLeads(data)
+    setLoading(false)
   }
 
   useEffect(() => {
     fetchLeads()
-  }, [])
 
-  // Efeito de Polling: A cada 10s ele checa o banco, só quando o robô estiver rodando
-  useEffect(() => {
-    let poller;
-    if (scrapingProgress) {
-      poller = setInterval(() => {
-        fetchLeads(true)
-      }, 10000) // Tenta a cada 10 segundos
+    // --- MÁGICA DO REALTIME ---
+    // Inscreve no canal de mudanças da tabela gmb_leads
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT', // Escuta apenas novas inserções
+          schema: 'public',
+          table: 'gmb_leads',
+        },
+        (payload) => {
+          console.log('Novo lead detectado em tempo real!', payload.new)
+          // Adiciona o novo lead no topo da lista instantaneamente
+          setLeads((currentLeads) => [payload.new, ...currentLeads])
+          // Se o robô estava rodando, podemos liberar o botão
+          setScrapingProgress(false)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
-    return () => clearInterval(poller)
-  }, [scrapingProgress, initialLeadsCount])
+  }, [])
 
   const handleCapture = async (e) => {
     e.preventDefault()
