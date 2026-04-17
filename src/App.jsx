@@ -196,8 +196,10 @@ function App() {
   // Filtragem dos Leads na view (Pesquisa e Status)
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
+      const matchSearch = lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          lead.niche?.toLowerCase().includes(searchTerm.toLowerCase());
+
       // Lógica de Status: Se o filtro for 'Todos', esconde os 'Descartados' para limpar o visual.
-      // Se o usuário selecionar especificamente 'Descartado', aí sim eles aparecem.
       const leadStatus = lead.status || 'Novo';
       const matchStatus = statusFilter === 'Todos' 
         ? leadStatus !== 'Descartado' 
