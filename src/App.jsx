@@ -29,6 +29,14 @@ function App() {
   const [scrapingProgress, setScrapingProgress] = useState(false)
   const [statesList, setStatesList] = useState([])
   const [citiesList, setCitiesList] = useState([])
+  
+  // Lista de Nichos pré-definidos para facilitar a busca
+  const nichesList = [
+    "Psicólogo", "Dentista", "Pizzaria", "Hamburgueria", "Clínica de Estética", 
+    "Advogado", "Contador", "Oficina Mecânica", "Pet Shop", "Academia", 
+    "Confeitaria", "Salão de Beleza", "Imobiliária", "Arquitetura", "Fisioterapia"
+  ].sort()
+
   const [filters, setFilters] = useState({
     niche: '',
     city: '',
@@ -177,13 +185,29 @@ function App() {
           <div className="form-grid">
             <div className="input-group">
               <label><Briefcase size={14} /> Nicho</label>
-              <input 
-                placeholder="Ex: Confeitaria, Dentista..."
+              <select 
                 value={filters.niche}
                 onChange={e => setFilters({...filters, niche: e.target.value})}
                 required
-              />
+              >
+                <option value="">Selecione o Nicho</option>
+                {nichesList.map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+                <option value="custom">Outro (Digitar)...</option>
+              </select>
             </div>
+            
+            {filters.niche === 'custom' && (
+              <div className="input-group">
+                <label><Briefcase size={14} /> Digite o Nicho Customizado</label>
+                <input 
+                  placeholder="Ex: Fabricante de Barcos"
+                  onChange={e => setFilters({...filters, niche: e.target.value})}
+                  required
+                />
+              </div>
+            )}
             <div className="input-group">
               <label><MapPin size={14} /> Estado</label>
               <select 
