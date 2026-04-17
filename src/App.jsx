@@ -51,7 +51,8 @@ function App() {
 
   // Gera uma lista de nichos únicos baseada nos leads que já existem no banco
   const uniqueNichesInDatabase = useMemo(() => {
-    const niches = leads.map(l => l.niche).filter(Boolean);
+    // Pega todos os nichos, troca os vazios por "Não Classificado"
+    const niches = leads.map(l => l.niche?.trim() || 'Não Classificado');
     return ['Todos', ...new Set(niches)].sort();
   }, [leads])
 
@@ -183,7 +184,8 @@ function App() {
       const matchSearch = lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           lead.niche?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchStatus = statusFilter === 'Todos' || (lead.status || 'Novo') === statusFilter;
-      const matchNiche = nicheFilter === 'Todos' || lead.niche === nicheFilter;
+      const currentNiche = lead.niche?.trim() || 'Não Classificado';
+      const matchNiche = nicheFilter === 'Todos' || currentNiche === nicheFilter;
       return matchSearch && matchStatus && matchNiche;
     });
   }, [leads, searchTerm, statusFilter, nicheFilter])
