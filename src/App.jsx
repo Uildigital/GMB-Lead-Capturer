@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, MapPin, Globe, Star, Users, Briefcase, Plus, Loader2, AlertCircle } from 'lucide-react'
+import { Search, MapPin, Globe, Star, Users, Briefcase, Plus, Loader2, AlertCircle, MessageCircle, Instagram, Facebook, Link as LinkIcon, Filter } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // Inicialização do Supabase usando variáveis de ambiente (Seguro para Produção)
@@ -10,6 +10,17 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 // URL do n8n Webhook (Configurável via ENV)
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL
+
+// Função Auxiliar para classificar o tipo de link
+const getLinkInfo = (url) => {
+  if (!url) return { type: 'Nenhum', icon: <Globe size={14} />, color: 'var(--text-muted)' };
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('whatsapp.com') || lowerUrl.includes('wa.me')) return { type: 'WhatsApp', icon: <MessageCircle size={14} />, color: '#25D366' };
+  if (lowerUrl.includes('instagram.com')) return { type: 'Instagram', icon: <Instagram size={14} />, color: '#E1306C' };
+  if (lowerUrl.includes('facebook.com')) return { type: 'Facebook', icon: <Facebook size={14} />, color: '#1877F2' };
+  if (lowerUrl.includes('linktr.ee')) return { type: 'Linktree', icon: <LinkIcon size={14} />, color: '#39E09B' };
+  return { type: 'Site Externo', icon: <Globe size={14} />, color: 'var(--primary)' };
+}
 
 function App() {
   const [leads, setLeads] = useState([])
@@ -24,6 +35,10 @@ function App() {
     state: '',
     region: ''
   })
+  
+  // Estados para o mini-CRM (Filtros locais da lista)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('Todos')
 
   // Carrega os estados do IBGE ao iniciar
   useEffect(() => {
@@ -74,9 +89,16 @@ function App() {
         (payload) => {
           console.log('Novo lead detectado em tempo real!', payload.new)
           // Adiciona o novo lead no topo da lista instantaneamente
-          setLeads((currentLeads) => [payload.new, ...currentLeads])
+          setLeads((currentLeads) => [{...payload.new, status: payload.new.status || 'Novo'}, ...currentLeads])
           // Se o robô estava rodando, podemos liberar o botão
           setScrapingProgress(false)
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'gmb_leads' },
+        (payload) => {
+          setLeads((currentLeads) => currentLeads.map(lead => lead.id === payload.new.id ? payload.new : lead))
         }
       )
       .subscribe()
@@ -106,7 +128,31 @@ function App() {
     } finally {
       setSearching(false)
     }
+  const updateLeadStatus = async (id, newStatus) => {
+    // Atualização otimista na UI (antes mesmo de salvar no banco) para ficar super rápido
+    setLeads(leads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead))
+    
+    // Atualiza no Supabase
+    const { error } = await supabase
+      .from('gmb_leads')
+      .update({ status: newStatus })
+      .eq('id', id)
+      
+    if (error) {
+      console.error("Erro ao atualizar status:", error)
+      fetchLeads() // Reverte se der erro
+    }
   }
+
+  // Filtragem dos Leads na view (Pesquisa e Status)
+  const filteredLeads = useMemo(() => {
+    return leads.filter(lead => {
+      const matchSearch = lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          lead.niche?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchStatus = statusFilter === 'Todos' || (lead.status || 'Novo') === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [leads, searchTerm, statusFilter])
 
   return (
     <div className="container">
@@ -202,9 +248,39 @@ function App() {
       </AnimatePresence>
 
       <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2>Leads Recentes <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>({leads.length})</span></h2>
-          <button onClick={fetchLeads} className="glass" style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Atualizar Lista</button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
+          <h2>Base de Leads <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>({filteredLeads.length})</span></h2>
+          
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0 0.5rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <Search size={16} style={{ color: 'var(--text-muted)' }} />
+              <input 
+                type="text" 
+                placeholder="Buscar por nome ou nicho..." 
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ border: 'none', background: 'transparent', width: '200px' }}
+              />
+            </div>
+            
+            <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0 0.5rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <Filter size={16} style={{ color: 'var(--text-muted)' }} />
+              <select 
+                value={statusFilter} 
+                onChange={e => setStatusFilter(e.target.value)}
+                style={{ border: 'none', background: 'transparent' }}
+              >
+                <option value="Todos">Todos os Status</option>
+                <option value="Novo">Novo</option>
+                <option value="Em Contato">Em Contato</option>
+                <option value="Agendado">Reunião Agendada</option>
+                <option value="Fechado">Cliente Fechado</option>
+                <option value="Descartado">Descartado</option>
+              </select>
+            </div>
+
+            <button onClick={fetchLeads} className="glass" style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Atualizar</button>
+          </div>
         </div>
 
         {loading ? (
@@ -215,45 +291,70 @@ function App() {
         ) : (
           <div className="leads-grid">
             <AnimatePresence>
-              {leads.map((lead) => (
-                <motion.div 
-                  key={lead.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="glass lead-card"
-                >
-                  <div className="lead-header">
-                    <span className="lead-name">{lead.company_name}</span>
-                    {lead.has_website ? (
-                      <span className="badge badge-success">Com Site</span>
-                    ) : (
-                      <span className="badge badge-danger">Sem Site ⚠️</span>
-                    )}
-                  </div>
-
-                  <div className="rating-bar">
-                    <div className="star-rating"><Star size={14} fill="currentColor" /> {lead.rating || 'N/A'}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Users size={14} /> {lead.reviews_count || 0} avaliações
+              {filteredLeads.map((lead) => {
+                const linkInfo = getLinkInfo(lead.website);
+                return (
+                  <motion.div 
+                    key={lead.id}
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="glass lead-card"
+                    style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+                  >
+                    <div className="lead-header">
+                      <span className="lead-name">{lead.company_name}</span>
+                      <select 
+                        value={lead.status || 'Novo'} 
+                        onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
+                        style={{ 
+                          padding: '4px 8px', 
+                          fontSize: '0.8rem', 
+                          borderRadius: '1rem', 
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: lead.status === 'Fechado' ? 'rgba(37, 211, 102, 0.2)' : 
+                                      lead.status === 'Descartado' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.05)',
+                          color: 'var(--text)'
+                        }}
+                      >
+                        <option value="Novo">✨ Novo</option>
+                        <option value="Em Contato">💬 Em Contato</option>
+                        <option value="Agendado">📅 Agendado</option>
+                        <option value="Fechado">✅ Fechado</option>
+                        <option value="Descartado">❌ Descartado</option>
+                      </select>
                     </div>
-                  </div>
 
-                  <div className="lead-info">
-                    <MapPin size={14} />
-                    <span>{lead.city}, {lead.state}</span>
-                    {lead.website && (
-                      <>
-                        <Globe size={14} />
-                        <a href={lead.website} target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }}>Ver Website</a>
-                      </>
-                    )}
-                    <AlertCircle size={14} />
-                    <span>Nicho: {lead.niche}</span>
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="rating-bar">
+                      <div className="star-rating"><Star size={14} fill="currentColor" /> {lead.rating || 'N/A'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Users size={14} /> {lead.reviews_count || 0} avaliações
+                      </div>
+                    </div>
+
+                    <div className="lead-info">
+                      <MapPin size={14} />
+                      <span>{lead.city}, {lead.state}</span>
+                      
+                      {lead.website && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                          <span style={{ color: linkInfo.color }}>{linkInfo.icon}</span>
+                          <a href={lead.website} target="_blank" style={{ color: linkInfo.color, textDecoration: 'none', fontWeight: '500' }}>
+                            {linkInfo.type}
+                          </a>
+                        </div>
+                      )}
+                      
+                      {!lead.website && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: 'var(--danger)' }}>
+                          <AlertCircle size={14} /> <span>Sem Presença Digital</span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )
+              })}
             </AnimatePresence>
           </div>
         )}
