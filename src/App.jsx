@@ -15,6 +15,8 @@ function App() {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
+  const [scrapingProgress, setScrapingProgress] = useState(false)
+  const [initialLeadsCount, setInitialLeadsCount] = useState(0)
   const [filters, setFilters] = useState({
     niche: '',
     city: '',
@@ -22,20 +24,41 @@ function App() {
     region: ''
   })
 
-  useEffect(() => {
-    fetchLeads()
-  }, [])
-
-  const fetchLeads = async () => {
-    setLoading(true)
+  // Hook para buscar leads no backend
+  const fetchLeads = async (isBackgroundPolling = false) => {
+    if (!isBackgroundPolling) setLoading(true)
     const { data, error } = await supabase
       .from('gmb_leads')
       .select('*')
       .order('created_at', { ascending: false })
     
-    if (data) setLeads(data)
-    setLoading(false)
+    if (data) {
+      setLeads(data)
+      if (!isBackgroundPolling) setInitialLeadsCount(data.length)
+      
+      // Se estamos fazendo polling (esperando o scraper) e os leads aumentaram, quer dizer que terminou!
+      if (isBackgroundPolling && data.length > initialLeadsCount) {
+        setScrapingProgress(false)
+        setInitialLeadsCount(data.length)
+      }
+    }
+    if (!isBackgroundPolling) setLoading(false)
   }
+
+  useEffect(() => {
+    fetchLeads()
+  }, [])
+
+  // Efeito de Polling: A cada 10s ele checa o banco, só quando o robô estiver rodando
+  useEffect(() => {
+    let poller;
+    if (scrapingProgress) {
+      poller = setInterval(() => {
+        fetchLeads(true)
+      }, 10000) // Tenta a cada 10 segundos
+    }
+    return () => clearInterval(poller)
+  }, [scrapingProgress, initialLeadsCount])
 
   const handleCapture = async (e) => {
     e.preventDefault()
@@ -49,9 +72,8 @@ function App() {
       })
 
       if (response.ok) {
-        // O n8n vai processar em background e gravar no Supabase
-        // Podemos dar um pequeno delay e atualizar
-        setTimeout(fetchLeads, 10000) // 10s para dar tempo do scraper rodar
+        // O Webhook do n8n responde imediatamente, e o scraping rola em background
+        setScrapingProgress(true) 
       }
     } catch (err) {
       console.error('Erro ao chamar n8n:', err)
@@ -108,10 +130,15 @@ function App() {
             </div>
           </div>
           
-          <button type="submit" className="primary" disabled={searching}>
+          <button type="submit" className="primary" disabled={searching || scrapingProgress}>
             {searching ? (
               <>
-                <div className="loading-spinner" /> Capturando Leads...
+                <div className="loading-spinner" /> Conectando ao n8n...
+              </>
+            ) : scrapingProgress ? (
+              <>
+                <div className="loading-spinner" style={{ width: '1rem', height: '1rem' }} /> 
+                Robô buscando... (Pode levar até 5 min)
               </>
             ) : (
               <>
@@ -121,6 +148,23 @@ function App() {
           </button>
         </form>
       </motion.div>
+
+      {/* Alerta Invisível de Teste de Fundo */}
+      <AnimatePresence>
+        {scrapingProgress && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '1rem', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', gap: '1rem' }}
+          >
+            <Loader2 className="loading-spinner" style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }} />
+            <p style={{ color: 'var(--text)', fontSize: '0.9rem' }}>
+              <strong>A busca está rodando em segundo plano.</strong> Fique à vontade para navegar. Novos resultados aparecerão sozinhos na tabela abaixo assim que o Apify terminar de varrer o Google.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <section>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
