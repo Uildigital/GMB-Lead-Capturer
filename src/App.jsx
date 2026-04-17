@@ -454,6 +454,15 @@ function App() {
                           </a>
                         </div>
                       )}
+
+                      {lead.google_url && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                          <MapPin size={14} style={{ color: '#EA4335' }} />
+                          <a href={lead.google_url} target="_blank" style={{ color: '#EA4335', textDecoration: 'none', fontWeight: '500' }}>
+                            Ver no Google Maps
+                          </a>
+                        </div>
+                      )}
                       
                       {!lead.website && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: 'var(--danger)' }}>
