@@ -256,13 +256,22 @@ function App() {
                 value={filters.city}
                 onChange={e => setFilters({...filters, city: e.target.value})}
                 required
-                disabled={!filters.state || citiesList.length === 0}
+                disabled={!filters.state}
               >
-                <option value="">{filters.state ? "Selecione a Cidade" : "Selecione o Estado primeiro"}</option>
-                {citiesList.map(city => (
-                  <option key={city.id} value={city.nome}>{city.nome}</option>
+                <option value="">Selecione a Cidade</option>
+                {citiesList.map(c => (
+                  <option key={c.nome} value={c.nome}>{c.nome}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="input-group">
+              <label><MapPin size={14} /> Bairro ou Região (Opcional)</label>
+              <input 
+                placeholder="Ex: Centro, Barra, Setor Bueno..."
+                value={filters.region}
+                onChange={e => setFilters({...filters, region: e.target.value})}
+              />
             </div>
           </div>
           
