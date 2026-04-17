@@ -49,11 +49,21 @@ function App() {
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [nicheFilter, setNicheFilter] = useState('Todos')
 
-  // Gera uma lista de nichos únicos baseada nos leads que já existem no banco
+  // Gera uma lista de nichos únicos com contador, baseada nos leads do banco
   const uniqueNichesInDatabase = useMemo(() => {
-    // Pega todos os nichos, troca os vazios por "Não Classificado"
-    const niches = leads.map(l => l.niche?.trim() || 'Não Classificado');
-    return ['Todos', ...new Set(niches)].sort();
+    const counts = {};
+    leads.forEach(l => {
+      const n = l.niche?.trim() || 'Não Classificado';
+      counts[n] = (counts[n] || 0) + 1;
+    });
+    
+    // Retorna array de objetos { name, count }
+    const sortedNiches = Object.keys(counts).sort().map(name => ({
+      name,
+      count: counts[name]
+    }));
+
+    return sortedNiches;
   }, [leads])
 
   // Carrega os estados do IBGE ao iniciar
@@ -310,9 +320,9 @@ function App() {
                 onChange={e => setNicheFilter(e.target.value)}
                 style={{ border: 'none', background: 'transparent' }}
               >
-                <option value="Todos">Todos os Nichos</option>
-                {uniqueNichesInDatabase.filter(n => n !== 'Todos').map(n => (
-                  <option key={n} value={n}>{n}</option>
+                <option value="Todos">Todos os Nichos ({leads.length})</option>
+                {uniqueNichesInDatabase.map(n => (
+                  <option key={n.name} value={n.name}>{n.name} ({n.count})</option>
                 ))}
               </select>
             </div>
