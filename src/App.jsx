@@ -39,6 +39,7 @@ function App() {
 
   const [filters, setFilters] = useState({
     niche: '',
+    customNiche: '',
     city: '',
     state: '',
     region: ''
@@ -124,7 +125,10 @@ function App() {
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(filters)
+        body: JSON.stringify({
+          ...filters,
+          niche: filters.niche === 'custom' ? filters.customNiche : filters.niche
+        })
       })
 
       if (response.ok) {
@@ -203,7 +207,8 @@ function App() {
                 <label><Briefcase size={14} /> Digite o Nicho Customizado</label>
                 <input 
                   placeholder="Ex: Fabricante de Barcos"
-                  onChange={e => setFilters({...filters, niche: e.target.value})}
+                  value={filters.customNiche}
+                  onChange={e => setFilters({...filters, customNiche: e.target.value})}
                   required
                 />
               </div>
