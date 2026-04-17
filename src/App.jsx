@@ -161,6 +161,22 @@ function App() {
     }
   }
 
+  const updateLeadNiche = async (id, newNiche) => {
+    // Atualização otimista
+    setLeads(leads.map(lead => lead.id === id ? { ...lead, niche: newNiche } : lead))
+    
+    // Atualiza no Supabase
+    const { error } = await supabase
+      .from('gmb_leads')
+      .update({ niche: newNiche })
+      .eq('id', id)
+      
+    if (error) {
+      console.error("Erro ao atualizar nicho:", error)
+      fetchLeads()
+    }
+  }
+
   // Filtragem dos Leads na view (Pesquisa e Status)
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
@@ -370,8 +386,34 @@ function App() {
                     </div>
 
                     <div className="lead-info">
-                      <MapPin size={14} />
-                      <span>{lead.city}, {lead.state}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', marginBottom: '4px' }}>
+                        <Briefcase size={14} style={{ flexShrink: 0 }} />
+                        <input 
+                          list="niches-suggestions"
+                          defaultValue={lead.niche}
+                          onBlur={(e) => {
+                            if (e.target.value !== lead.niche) {
+                              updateLeadNiche(lead.id, e.target.value)
+                            }
+                          }}
+                          placeholder="Classificar nicho..."
+                          style={{ 
+                            border: 'none', 
+                            background: 'rgba(255,255,255,0.05)', 
+                            fontSize: '0.85rem', 
+                            padding: '2px 6px', 
+                            borderRadius: '4px',
+                            color: 'var(--primary)',
+                            fontWeight: '600',
+                            width: '100%'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <MapPin size={14} />
+                        <span>{lead.city}, {lead.state}</span>
+                      </div>
                       
                       {lead.website && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
