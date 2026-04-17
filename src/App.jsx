@@ -48,6 +48,13 @@ function App() {
   // Estados para o mini-CRM (Filtros locais da lista)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos')
+  const [nicheFilter, setNicheFilter] = useState('Todos')
+
+  // Gera uma lista de nichos únicos baseada nos leads que já existem no banco
+  const uniqueNichesInDatabase = useMemo(() => {
+    const niches = leads.map(l => l.niche).filter(Boolean);
+    return ['Todos', ...new Set(niches)].sort();
+  }, [leads])
 
   // Carrega os estados do IBGE ao iniciar
   useEffect(() => {
@@ -164,9 +171,10 @@ function App() {
       const matchSearch = lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           lead.niche?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchStatus = statusFilter === 'Todos' || (lead.status || 'Novo') === statusFilter;
-      return matchSearch && matchStatus;
+      const matchNiche = nicheFilter === 'Todos' || lead.niche === nicheFilter;
+      return matchSearch && matchStatus && matchNiche;
     });
-  }, [leads, searchTerm, statusFilter])
+  }, [leads, searchTerm, statusFilter, nicheFilter])
 
   return (
     <div className="container">
@@ -294,6 +302,20 @@ function App() {
               />
             </div>
             
+            <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0 0.5rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <Filter size={16} style={{ color: 'var(--text-muted)' }} />
+              <select 
+                value={nicheFilter} 
+                onChange={e => setNicheFilter(e.target.value)}
+                style={{ border: 'none', background: 'transparent' }}
+              >
+                <option value="Todos">Todos os Nichos</option>
+                {uniqueNichesInDatabase.filter(n => n !== 'Todos').map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0 0.5rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
               <Filter size={16} style={{ color: 'var(--text-muted)' }} />
               <select 
