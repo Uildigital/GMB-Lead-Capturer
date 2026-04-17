@@ -1,0 +1,16 @@
+# DOE Framework - Gitignore
+
+# Arquivos Sensíveis
+.env
+credentials.json
+token.json
+
+# Arquivos Temporários e Intermediários
+.tmp/
+*.log
+
+# Dependências
+node_modules/
+venv/
+__pycache__/
+.DS_Store
