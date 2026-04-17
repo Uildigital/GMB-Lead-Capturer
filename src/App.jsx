@@ -58,10 +58,15 @@ function App() {
     });
     
     // Retorna array de objetos { name, count }
-    const sortedNiches = Object.keys(counts).sort().map(name => ({
-      name,
-      count: counts[name]
-    }));
+    const sortedNiches = Object.keys(counts).sort().map(name => {
+      // Capitaliza a primeira letra para ficar bonito no filtro
+      const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+      return {
+        name: name, // Valor real para o filtro
+        displayName: capitalized, // Nome bonito para a tela
+        count: counts[name]
+      };
+    });
 
     return sortedNiches;
   }, [leads])
@@ -318,11 +323,18 @@ function App() {
               <select 
                 value={nicheFilter} 
                 onChange={e => setNicheFilter(e.target.value)}
-                style={{ border: 'none', background: 'transparent' }}
+                style={{ 
+                  border: 'none', 
+                  background: 'transparent',
+                  color: 'white', // Texto do campo fechado
+                  cursor: 'pointer'
+                }}
               >
-                <option value="Todos">Todos os Nichos ({leads.length})</option>
+                <option value="Todos" style={{ color: '#333' }}>Todos os Nichos ({leads.length})</option>
                 {uniqueNichesInDatabase.map(n => (
-                  <option key={n.name} value={n.name}>{n.name} ({n.count})</option>
+                  <option key={n.name} value={n.name} style={{ color: '#333' }}>
+                    {n.displayName} ({n.count})
+                  </option>
                 ))}
               </select>
             </div>
