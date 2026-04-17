@@ -16,12 +16,34 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [scrapingProgress, setScrapingProgress] = useState(false)
+  const [statesList, setStatesList] = useState([])
+  const [citiesList, setCitiesList] = useState([])
   const [filters, setFilters] = useState({
     niche: '',
     city: '',
     state: '',
     region: ''
   })
+
+  // Carrega os estados do IBGE ao iniciar
+  useEffect(() => {
+    fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
+      .then(res => res.json())
+      .then(data => setStatesList(data))
+      .catch(err => console.error("Erro ao buscar estados:", err))
+  }, [])
+
+  // Carrega as cidades quando um estado é selecionado
+  useEffect(() => {
+    if (filters.state) {
+      fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${filters.state}/municipios?orderBy=nome`)
+        .then(res => res.json())
+        .then(data => setCitiesList(data))
+        .catch(err => console.error("Erro ao buscar cidades:", err))
+    } else {
+      setCitiesList([])
+    }
+  }, [filters.state])
 
   // Função para buscar leads iniciais
   const fetchLeads = async () => {
@@ -115,22 +137,31 @@ function App() {
               />
             </div>
             <div className="input-group">
+              <label><MapPin size={14} /> Estado</label>
+              <select 
+                value={filters.state}
+                onChange={e => setFilters({ ...filters, state: e.target.value, city: '' })}
+                required
+              >
+                <option value="">Selecione o Estado</option>
+                {statesList.map(uf => (
+                  <option key={uf.id} value={uf.sigla}>{uf.nome} ({uf.sigla})</option>
+                ))}
+              </select>
+            </div>
+            <div className="input-group">
               <label><MapPin size={14} /> Cidade</label>
-              <input 
-                placeholder="Ex: São Paulo"
+              <select 
                 value={filters.city}
                 onChange={e => setFilters({...filters, city: e.target.value})}
                 required
-              />
-            </div>
-            <div className="input-group">
-              <label><MapPin size={14} /> Estado</label>
-              <input 
-                placeholder="Ex: SP"
-                value={filters.state}
-                onChange={e => setFilters({...filters, state: e.target.value})}
-                required
-              />
+                disabled={!filters.state || citiesList.length === 0}
+              >
+                <option value="">{filters.state ? "Selecione a Cidade" : "Selecione o Estado primeiro"}</option>
+                {citiesList.map(city => (
+                  <option key={city.id} value={city.nome}>{city.nome}</option>
+                ))}
+              </select>
             </div>
           </div>
           
