@@ -39,7 +39,6 @@ function App() {
 
   const [filters, setFilters] = useState({
     niche: '',
-    customNiche: '',
     city: '',
     state: '',
     region: ''
@@ -132,10 +131,7 @@ function App() {
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...filters,
-          niche: filters.niche === 'custom' ? filters.customNiche : filters.niche
-        })
+        body: JSON.stringify(filters)
       })
 
       if (response.ok) {
@@ -197,30 +193,17 @@ function App() {
           <div className="form-grid">
             <div className="input-group">
               <label><Briefcase size={14} /> Nicho</label>
-              <select 
+              <input 
+                list="niches-suggestions"
+                placeholder="Ex: Psicólogo, Pizzaria..."
                 value={filters.niche}
                 onChange={e => setFilters({...filters, niche: e.target.value})}
                 required
-              >
-                <option value="">Selecione o Nicho</option>
-                {nichesList.map(n => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-                <option value="custom">Outro (Digitar)...</option>
-              </select>
+              />
+              <datalist id="niches-suggestions">
+                {nichesList.map(n => <option key={n} value={n} />)}
+              </datalist>
             </div>
-            
-            {filters.niche === 'custom' && (
-              <div className="input-group">
-                <label><Briefcase size={14} /> Digite o Nicho Customizado</label>
-                <input 
-                  placeholder="Ex: Fabricante de Barcos"
-                  value={filters.customNiche}
-                  onChange={e => setFilters({...filters, customNiche: e.target.value})}
-                  required
-                />
-              </div>
-            )}
             <div className="input-group">
               <label><MapPin size={14} /> Estado</label>
               <select 
