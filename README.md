@@ -6,7 +6,7 @@ Este repositório é um **Workflow Global** projetado para maximizar a confiabil
 - `directives/`: Contém os arquivos Markdown (POPs) que guiam o agente.
 - `execution/`: Scripts Python/JS que realizam o trabalho pesado de forma determinística.
 - `.tmp/`: Pasta para processamento de arquivos intermediários.
-- `.env`: Configurações e chaves de API (não versionado).
+- `.env`: Configurações e chaves de API (não versionadom).
 
 ## 🚀 Como usar em novos projetos
 1. Copie as pastas `directives/` e `execution/` para seu novo projeto.

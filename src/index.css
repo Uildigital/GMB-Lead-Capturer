@@ -203,3 +203,231 @@ button:disabled {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* --- Novos Estilos PRO --- */
+
+.badge-pro {
+  background: linear-gradient(135deg, #f59e0b, #ec4899);
+  color: white;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  gap: 1.5rem;
+}
+
+.filters-row {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  padding: 0.4rem 1rem;
+  border-radius: 12px;
+}
+
+.search-box input {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 180px;
+}
+
+.counter {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+/* Lead Card Enhancements */
+.priority-urgent {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.priority-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.priority-badge.urgente { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+.priority-badge.alta { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.priority-badge.média { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+.priority-badge.baixa { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+
+.danger-badge {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* Scores Breakdown */
+.score-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255,255,255,0.03);
+  padding: 10px;
+  border-radius: 12px;
+  margin: 0.5rem 0;
+}
+
+.score-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.score-item span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.score-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.score-bar .fill {
+  height: 100%;
+  transition: width 0.8s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+}
+
+.total-lead-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-left: 1px solid var(--border);
+  padding-left: 1rem;
+}
+
+.total-lead-score strong {
+  font-size: 1.2rem;
+  color: var(--primary);
+}
+
+/* Tags de links */
+.social-links-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.link-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.link-tag.site { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+.link-tag.insta { background: rgba(225, 48, 108, 0.15); color: #e1306c; }
+.link-tag.gmaps { background: rgba(234, 67, 53, 0.1); color: #ea4335; }
+.link-tag.none { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+/* AI Section */
+.ai-analysis-box {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #a78bfa;
+  text-transform: uppercase;
+}
+
+.recommendation-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  background: #a78bfa22;
+  color: #a78bfa;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.ai-diagnosis {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.btn-pitch {
+  background: transparent;
+  border: 1px dashed #a78bfa;
+  color: #a78bfa;
+  padding: 6px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-pitch:hover {
+  background: #a78bfa11;
+}
+
+.pitch-content {
+  background: rgba(167, 139, 250, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  border: 1px solid #a78bfa22;
+}
+
+.copy-btn {
+  margin-top: 8px;
+  background: #a78bfa;
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-weight: 600;
+}

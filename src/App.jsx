@@ -22,6 +22,13 @@ const getLinkInfo = (url) => {
   return { type: 'Site Externo', icon: <Globe size={14} />, color: 'var(--primary)' };
 }
 
+// Função Auxiliar para cores de pontuação
+const getScoreColor = (score) => {
+  if (score >= 80) return '#ef4444'; // Vermelho (Alta Oportunidade/Problema grave)
+  if (score >= 50) return '#f59e0b'; // Laranja (Média Oportunidade)
+  return '#10b981'; // Verde (Saudável/Baixa Oportunidade)
+}
+
 function App() {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(false)
@@ -29,8 +36,9 @@ function App() {
   const [scrapingProgress, setScrapingProgress] = useState(false)
   const [statesList, setStatesList] = useState([])
   const [citiesList, setCitiesList] = useState([])
+  const [expandedLead, setExpandedLead] = useState(null)
   
-  // Lista de Nichos pré-definidos para facilitar a busca
+  // Lista de Nichos pré-definidos
   const nichesList = [
     "Psicólogo", "Dentista", "Pizzaria", "Hamburgueria", "Clínica de Estética", 
     "Advogado", "Contador", "Oficina Mecânica", "Pet Shop", "Academia", 
@@ -44,12 +52,10 @@ function App() {
     region: ''
   })
   
-  // Estados para o mini-CRM (Filtros locais da lista)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [nicheFilter, setNicheFilter] = useState('Todos')
 
-  // Gera uma lista de nichos únicos com contador, baseada nos leads do banco
   const uniqueNichesInDatabase = useMemo(() => {
     const counts = {};
     leads.forEach(l => {
@@ -57,47 +63,35 @@ function App() {
       counts[n] = (counts[n] || 0) + 1;
     });
     
-    // Retorna array de objetos { name, count }
-    const sortedNiches = Object.keys(counts).sort().map(name => {
-      // Capitaliza a primeira letra para ficar bonito no filtro
-      const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-      return {
-        name: name, // Valor real para o filtro
-        displayName: capitalized, // Nome bonito para a tela
-        count: counts[name]
-      };
-    });
-
-    return sortedNiches;
+    return Object.keys(counts).sort().map(name => ({
+      name: name,
+      displayName: name.charAt(0).toUpperCase() + name.slice(1),
+      count: counts[name]
+    }));
   }, [leads])
 
-  // Carrega os estados do IBGE ao iniciar
   useEffect(() => {
     fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
       .then(res => res.json())
       .then(data => setStatesList(data))
-      .catch(err => console.error("Erro ao buscar estados:", err))
   }, [])
 
-  // Carrega as cidades quando um estado é selecionado
   useEffect(() => {
     if (filters.state) {
       fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${filters.state}/municipios?orderBy=nome`)
         .then(res => res.json())
         .then(data => setCitiesList(data))
-        .catch(err => console.error("Erro ao buscar cidades:", err))
     } else {
       setCitiesList([])
     }
   }, [filters.state])
 
-  // Função para buscar leads iniciais
   const fetchLeads = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('gmb_leads')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('total_score', { ascending: false }) // Ordena por prioridade automática
     
     if (data) setLeads(data)
     setLoading(false)
@@ -106,105 +100,48 @@ function App() {
   useEffect(() => {
     fetchLeads()
 
-    // --- MÁGICA DO REALTIME ---
-    // Inscreve no canal de mudanças da tabela gmb_leads
     const channel = supabase
       .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT', // Escuta apenas novas inserções
-          schema: 'public',
-          table: 'gmb_leads',
-        },
-        (payload) => {
-          console.log('Novo lead detectado em tempo real!', payload.new)
-          // Adiciona o novo lead no topo da lista instantaneamente
-          setLeads((currentLeads) => [{...payload.new, status: payload.new.status || 'Novo'}, ...currentLeads])
-          // Se o robô estava rodando, podemos liberar o botão
-          setScrapingProgress(false)
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'gmb_leads' },
-        (payload) => {
-          setLeads((currentLeads) => currentLeads.map(lead => lead.id === payload.new.id ? payload.new : lead))
-        }
-      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gmb_leads' }, (payload) => {
+        setLeads((currentLeads) => [payload.new, ...currentLeads])
+        setScrapingProgress(false)
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'gmb_leads' }, (payload) => {
+        setLeads((currentLeads) => currentLeads.map(lead => lead.id === payload.new.id ? payload.new : lead))
+      })
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => supabase.removeChannel(channel)
   }, [])
 
   const handleCapture = async (e) => {
     e.preventDefault()
     setSearching(true)
-    
     try {
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(filters)
       })
-
-      if (response.ok) {
-        // O Webhook do n8n responde imediatamente, e o scraping rola em background
-        setScrapingProgress(true) 
-      }
+      if (response.ok) setScrapingProgress(true) 
     } catch (err) {
-      console.error('Erro ao chamar n8n:', err)
+      console.error(err)
     } finally {
       setSearching(false)
     }
   }
 
   const updateLeadStatus = async (id, newStatus) => {
-    // Atualização otimista na UI (antes mesmo de salvar no banco) para ficar super rápido
     setLeads(leads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead))
-    
-    // Atualiza no Supabase
-    const { error } = await supabase
-      .from('gmb_leads')
-      .update({ status: newStatus })
-      .eq('id', id)
-      
-    if (error) {
-      console.error("Erro ao atualizar status:", error)
-      fetchLeads() // Reverte se der erro
-    }
+    await supabase.from('gmb_leads').update({ status: newStatus }).eq('id', id)
   }
 
-  const updateLeadNiche = async (id, newNiche) => {
-    // Atualização otimista
-    setLeads(leads.map(lead => lead.id === id ? { ...lead, niche: newNiche } : lead))
-    
-    // Atualiza no Supabase
-    const { error } = await supabase
-      .from('gmb_leads')
-      .update({ niche: newNiche })
-      .eq('id', id)
-      
-    if (error) {
-      console.error("Erro ao atualizar nicho:", error)
-      fetchLeads()
-    }
-  }
-
-  // Filtragem dos Leads na view (Pesquisa e Status)
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
       const matchSearch = lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           lead.niche?.toLowerCase().includes(searchTerm.toLowerCase());
-
-      // Lógica de Status: Se o filtro for 'Todos', esconde os 'Descartados' para limpar o visual.
       const leadStatus = lead.status || 'Novo';
-      const matchStatus = statusFilter === 'Todos' 
-        ? leadStatus !== 'Descartado' 
-        : leadStatus === statusFilter;
-
+      const matchStatus = statusFilter === 'Todos' ? leadStatus !== 'Descartado' : leadStatus === statusFilter;
       const currentNiche = lead.niche?.trim() || 'Não Classificado';
       const matchNiche = nicheFilter === 'Todos' || currentNiche === nicheFilter;
       return matchSearch && matchStatus && matchNiche;
@@ -214,286 +151,179 @@ function App() {
   return (
     <div className="container">
       <header>
-        <motion.h1 
-          initial={{ opacity: 0, y: -20 }}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }} 
           animate={{ opacity: 1, y: 0 }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}
         >
-          GMB Lead Capturer
-        </motion.h1>
-        <p className="subtitle">Encontre empresas com perfis do Google Maps que precisam do seu serviço.</p>
+          <img src="https://fav.farm/🚀" alt="logo" style={{ width: '40px' }} />
+          <h1>GMB Lead Capturer <span className="badge-pro">PRO</span></h1>
+        </motion.div>
+        <p className="subtitle">Ranking Estratégico & Inteligência Artificial para Prospecção Local.</p>
       </header>
 
-      <motion.div 
-        className="glass search-card"
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-      >
+      <motion.div className="glass search-card" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
         <form onSubmit={handleCapture}>
           <div className="form-grid">
             <div className="input-group">
-              <label><Briefcase size={14} /> Nicho</label>
-              <input 
-                list="niches-suggestions"
-                placeholder="Ex: Psicólogo, Pizzaria..."
-                value={filters.niche}
-                onChange={e => setFilters({...filters, niche: e.target.value})}
-                required
-              />
-              <datalist id="niches-suggestions">
-                {nichesList.map(n => <option key={n} value={n} />)}
-              </datalist>
+              <label><Briefcase size={14} /> Nicho Alvo</label>
+              <input list="niches-suggestions" placeholder="Ex: Dentista..." value={filters.niche} onChange={e => setFilters({...filters, niche: e.target.value})} required />
+              <datalist id="niches-suggestions">{nichesList.map(n => <option key={n} value={n} />)}</datalist>
             </div>
             <div className="input-group">
               <label><MapPin size={14} /> Estado</label>
-              <select 
-                value={filters.state}
-                onChange={e => setFilters({ ...filters, state: e.target.value, city: '' })}
-                required
-              >
+              <select value={filters.state} onChange={e => setFilters({ ...filters, state: e.target.value, city: '' })} required>
                 <option value="">Selecione o Estado</option>
-                {statesList.map(uf => (
-                  <option key={uf.id} value={uf.sigla}>{uf.nome} ({uf.sigla})</option>
-                ))}
+                {statesList.map(uf => (<option key={uf.id} value={uf.sigla}>{uf.nome} ({uf.sigla})</option>))}
               </select>
             </div>
             <div className="input-group">
               <label><MapPin size={14} /> Cidade</label>
-              <select 
-                value={filters.city}
-                onChange={e => setFilters({...filters, city: e.target.value})}
-                required
-                disabled={!filters.state}
-              >
+              <select value={filters.city} onChange={e => setFilters({...filters, city: e.target.value})} required disabled={!filters.state}>
                 <option value="">Selecione a Cidade</option>
-                {citiesList.map(c => (
-                  <option key={c.nome} value={c.nome}>{c.nome}</option>
-                ))}
+                {citiesList.map(c => (<option key={c.nome} value={c.nome}>{c.nome}</option>))}
               </select>
             </div>
-
             <div className="input-group">
-              <label><MapPin size={14} /> Bairro ou Região (Opcional)</label>
-              <input 
-                placeholder="Ex: Centro, Barra, Setor Bueno..."
-                value={filters.region}
-                onChange={e => setFilters({...filters, region: e.target.value})}
-              />
+              <label><MapPin size={14} /> Região Específica</label>
+              <input placeholder="Ex: Centro..." value={filters.region} onChange={e => setFilters({...filters, region: e.target.value})} />
             </div>
           </div>
-          
           <button type="submit" className="primary" disabled={searching || scrapingProgress}>
-            {searching ? (
-              <>
-                <div className="loading-spinner" /> Conectando ao n8n...
-              </>
-            ) : scrapingProgress ? (
-              <>
-                <div className="loading-spinner" style={{ width: '1rem', height: '1rem' }} /> 
-                Robô buscando... (Pode levar até 5 min)
-              </>
-            ) : (
-              <>
-                <Plus size={18} /> Iniciar Nova Captura
-              </>
-            )}
+            {searching ? <><Loader2 className="loading-spinner" /> Conectando...</> : scrapingProgress ? <><Loader2 className="loading-spinner" /> Capturando com IA...</> : <><Plus size={18} /> Iniciar Prospecção</>}
           </button>
         </form>
       </motion.div>
 
-      {/* Alerta Invisível de Teste de Fundo */}
-      <AnimatePresence>
-        {scrapingProgress && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '1rem', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', gap: '1rem' }}
-          >
-            <Loader2 className="loading-spinner" style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }} />
-            <p style={{ color: 'var(--text)', fontSize: '0.9rem' }}>
-              <strong>A busca está rodando em segundo plano.</strong> Fique à vontade para navegar. Novos resultados aparecerão sozinhos na tabela abaixo assim que o Apify terminar de varrer o Google.
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <section>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
-          <h2>Base de Leads <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>({filteredLeads.length})</span></h2>
-          
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0 0.5rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <Search size={16} style={{ color: 'var(--text-muted)' }} />
-              <input 
-                type="text" 
-                placeholder="Buscar por nome ou nicho..." 
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                style={{ border: 'none', background: 'transparent', width: '200px' }}
-              />
+        <div className="action-bar">
+          <h2>Base de Oportunidades <span className="counter">({filteredLeads.length})</span></h2>
+          <div className="filters-row">
+            <div className="search-box">
+              <Search size={16} />
+              <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
-            
-            <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0 0.5rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <Filter size={16} style={{ color: 'var(--text-muted)' }} />
-              <select 
-                value={nicheFilter} 
-                onChange={e => setNicheFilter(e.target.value)}
-                style={{ 
-                  border: 'none', 
-                  background: 'rgba(255,255,255,0.1)', // Um pouco mais de fundo para contraste
-                  color: 'white',
-                  cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  appearance: 'auto' // Força o estilo nativo que costuma respeitar cores de sistema
-                }}
-              >
-                <option value="Todos" style={{ color: 'black', background: 'white' }}>Todos os Nichos ({leads.length})</option>
-                {uniqueNichesInDatabase.map(n => (
-                  <option key={n.name} value={n.name} style={{ color: 'black', background: 'white' }}>
-                    {n.displayName} ({n.count})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0 0.5rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <Filter size={16} style={{ color: 'var(--text-muted)' }} />
-              <select 
-                value={statusFilter} 
-                onChange={e => setStatusFilter(e.target.value)}
-                style={{ border: 'none', background: 'transparent' }}
-              >
-                <option value="Todos">Todos os Status</option>
-                <option value="Novo">Novo</option>
-                <option value="Em Contato">Em Contato</option>
-                <option value="Agendado">Reunião Agendada</option>
-                <option value="Fechado">Cliente Fechado</option>
-                <option value="Descartado">Descartado</option>
-              </select>
-            </div>
-
-            <button onClick={fetchLeads} className="glass" style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Atualizar</button>
+            <select value={nicheFilter} onChange={e => setNicheFilter(e.target.value)}>
+              <option value="Todos">Todos Nichos</option>
+              {uniqueNichesInDatabase.map(n => (<option key={n.name} value={n.name}>{n.displayName}</option>))}
+            </select>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <option value="Todos">Sem Descartados</option>
+              <option value="Novo">✨ Novo</option>
+              <option value="Em Contato">💬 Contato</option>
+              <option value="Agendado">📅 Agendado</option>
+              <option value="Fechado">✅ Cliente</option>
+              <option value="Descartado">❌ Descartado</option>
+            </select>
           </div>
         </div>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '4rem' }}>
-            <Loader2 className="loading-spinner" style={{ margin: '0 auto 1rem' }} />
-            <p>Carregando leads do banco...</p>
-          </div>
-        ) : (
-          <div className="leads-grid">
-            <AnimatePresence>
-              {filteredLeads.map((lead) => {
-                const linkInfo = getLinkInfo(lead.website);
-                return (
-                  <motion.div 
-                    key={lead.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="glass lead-card"
-                    style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        <div className="leads-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))' }}>
+          <AnimatePresence>
+            {filteredLeads.map((lead) => (
+              <motion.div 
+                key={lead.id} 
+                layout 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className={`glass lead-card ${lead.priority === 'Urgente' ? 'priority-urgent' : ''}`}
+              >
+                <div className="lead-header">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span className="lead-name">{lead.company_name}</span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span className={`priority-badge ${lead.priority?.toLowerCase()}`}>
+                        {lead.priority || 'Baixa'}
+                      </span>
+                      {lead.is_claimed === false && <span className="danger-badge">Não Reivindicado</span>}
+                    </div>
+                  </div>
+                  <select 
+                    value={lead.status || 'Novo'} 
+                    onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
+                    className="status-select"
                   >
-                    <div className="lead-header">
-                      <span className="lead-name">{lead.company_name}</span>
-                      <select 
-                        value={lead.status || 'Novo'} 
-                        onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
-                        style={{ 
-                          padding: '4px 8px', 
-                          fontSize: '0.8rem', 
-                          borderRadius: '1rem', 
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          background: lead.status === 'Fechado' ? 'rgba(37, 211, 102, 0.2)' : 
-                                      lead.status === 'Descartado' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.05)',
-                          color: 'var(--text)'
-                        }}
-                      >
-                        <option value="Novo">✨ Novo</option>
-                        <option value="Em Contato">💬 Em Contato</option>
-                        <option value="Agendado">📅 Agendado</option>
-                        <option value="Fechado">✅ Fechado</option>
-                        <option value="Descartado">❌ Descartado</option>
-                      </select>
+                    <option value="Novo">✨ Novo</option>
+                    <option value="Em Contato">💬 Contato</option>
+                    <option value="Agendado">📅 Reunião</option>
+                    <option value="Fechado">✅ Fechado</option>
+                    <option value="Descartado">❌ Descartar</option>
+                  </select>
+                </div>
+
+                <div className="score-summary">
+                  <div className="score-item" title="Otimização GMB">
+                    <span>GMB</span>
+                    <div className="score-bar"><div className="fill" style={{ width: `${lead.gmb_score}%`, background: getScoreColor(lead.gmb_score) }} /></div>
+                  </div>
+                  <div className="score-item" title="Qualidade do Site">
+                    <span>Web</span>
+                    <div className="score-bar"><div className="fill" style={{ width: `${lead.web_score}%`, background: getScoreColor(lead.web_score) }} /></div>
+                  </div>
+                  <div className="score-item" title="Redes Sociais">
+                    <span>Social</span>
+                    <div className="score-bar"><div className="fill" style={{ width: `${lead.social_score || 0}%`, background: getScoreColor(lead.social_score || 0) }} /></div>
+                  </div>
+                  <div className="total-lead-score">
+                    <strong>{lead.total_score || 0}</strong>
+                    <span>pts</span>
+                  </div>
+                </div>
+
+                <div className="lead-contacts">
+                  <div className="contact-row"><Phone size={14} /> <span>{lead.phone || 'Sem Telefone'}</span></div>
+                  <div className="contact-row"><MapPin size={14} /> <span>{lead.city} - {lead.state}</span></div>
+                  <div className="social-links-row">
+                    {lead.website ? (
+                      <a href={lead.website} target="_blank" className="link-tag site">
+                        <Globe size={14} /> {lead.is_business_site ? 'Google Site' : 'Site Próprio'}
+                      </a>
+                    ) : <span className="link-tag none"><AlertCircle size={14} /> Sem Site</span>}
+                    
+                    {lead.instagram_url && (
+                      <a href={lead.instagram_url} target="_blank" className="link-tag insta">
+                        <Instagram size={14} /> Instagram
+                      </a>
+                    )}
+                    {lead.google_url && (
+                      <a href={lead.google_url} target="_blank" className="link-tag gmaps">
+                        <MapPin size={14} /> Maps
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {lead.ai_diagnosis && (
+                  <div className="ai-analysis-box">
+                    <div className="ai-header">
+                      <div className="ai-title"><Loader2 size={14} /> Análise Estratégica IA</div>
+                      <span className="recommendation-badge">{lead.ai_recommendation}</span>
                     </div>
-
-                    <div className="rating-bar">
-                      <div className="star-rating"><Star size={14} fill="currentColor" /> {lead.rating || 'N/A'}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Users size={14} /> {lead.reviews_count || 0} avaliações
-                      </div>
-                    </div>
-
-                    <div className="lead-info">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', marginBottom: '4px' }}>
-                        <Briefcase size={14} style={{ flexShrink: 0 }} />
-                        <input 
-                          list="niches-suggestions"
-                          defaultValue={lead.niche}
-                          onBlur={(e) => {
-                            if (e.target.value !== lead.niche) {
-                              updateLeadNiche(lead.id, e.target.value)
-                            }
-                          }}
-                          placeholder="Classificar nicho..."
-                          style={{ 
-                            border: 'none', 
-                            background: 'rgba(255,255,255,0.05)', 
-                            fontSize: '0.85rem', 
-                            padding: '2px 6px', 
-                            borderRadius: '4px',
-                            color: 'var(--primary)',
-                            fontWeight: '600',
-                            width: '100%'
-                          }}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <MapPin size={14} style={{ flexShrink: 0 }} />
-                        <span style={{ fontSize: '0.85rem' }}>{lead.address || `${lead.city}, ${lead.state}`}</span>
-                      </div>
-
-                      {lead.phone && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
-                          <Phone size={14} style={{ flexShrink: 0 }} />
-                          <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>{lead.phone}</span>
-                        </div>
-                      )}
-                      
-                      {lead.website && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                          <span style={{ color: linkInfo.color }}>{linkInfo.icon}</span>
-                          <a href={lead.website} target="_blank" style={{ color: linkInfo.color, textDecoration: 'none', fontWeight: '500' }}>
-                            {linkInfo.type}
-                          </a>
-                        </div>
-                      )}
-
-                      {lead.google_url && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                          <MapPin size={14} style={{ color: '#EA4335' }} />
-                          <a href={lead.google_url} target="_blank" style={{ color: '#EA4335', textDecoration: 'none', fontWeight: '500' }}>
-                            Ver no Google Maps
-                          </a>
-                        </div>
-                      )}
-                      
-                      {!lead.website && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: 'var(--danger)' }}>
-                          <AlertCircle size={14} /> <span>Sem Presença Digital</span>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </AnimatePresence>
-          </div>
-        )}
+                    <p className="ai-diagnosis">"{lead.ai_diagnosis}"</p>
+                    <button 
+                      className="btn-pitch" 
+                      onClick={() => {
+                        setExpandedLead(expandedLead === lead.id ? null : lead.id)
+                      }}
+                    >
+                      {expandedLead === lead.id ? 'Fechar Pitch' : '💡 Ver Script de Abordagem'}
+                    </button>
+                    {expandedLead === lead.id && (
+                      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="pitch-content">
+                        <strong>Script Sugerido:</strong>
+                        <p>{lead.ai_pitch}</p>
+                        <button 
+                          className="copy-btn"
+                          onClick={() => navigator.clipboard.writeText(lead.ai_pitch)}
+                        > Copiar Script </button>
+                      </motion.div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
       </section>
     </div>
   )
