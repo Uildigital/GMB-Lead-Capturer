@@ -1,17 +1,17 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { Search, MapPin, Globe, Star, Users, Briefcase, Plus, Loader2, AlertCircle, MessageCircle, Instagram, Facebook, Link as LinkIcon, Filter, Phone } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// Inicialização do Supabase usando variáveis de ambiente (Seguro para Produção)
+// InicializaÃ§Ã£o do Supabase usando variÃ¡veis de ambiente (Seguro para ProduÃ§Ã£o)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// URL do n8n Webhook (Configurável via ENV)
+// URL do n8n Webhook (ConfigurÃ¡vel via ENV)
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL
 
-// Função Auxiliar para classificar o tipo de link
+// FunÃ§Ã£o Auxiliar para classificar o tipo de link
 const getLinkInfo = (url) => {
   if (!url) return { type: 'Nenhum', icon: <Globe size={14} />, color: 'var(--text-muted)' };
   const lowerUrl = url.toLowerCase();
@@ -22,11 +22,11 @@ const getLinkInfo = (url) => {
   return { type: 'Site Externo', icon: <Globe size={14} />, color: 'var(--primary)' };
 }
 
-// Função Auxiliar para cores de pontuação
+// FunÃ§Ã£o Auxiliar para cores de pontuaÃ§Ã£o
 const getScoreColor = (score) => {
   if (score >= 80) return '#ef4444'; // Vermelho (Alta Oportunidade/Problema grave)
-  if (score >= 50) return '#f59e0b'; // Laranja (Média Oportunidade)
-  return '#10b981'; // Verde (Saudável/Baixa Oportunidade)
+  if (score >= 50) return '#f59e0b'; // Laranja (MÃ©dia Oportunidade)
+  return '#10b981'; // Verde (SaudÃ¡vel/Baixa Oportunidade)
 }
 
 function App() {
@@ -38,11 +38,11 @@ function App() {
   const [citiesList, setCitiesList] = useState([])
   const [expandedLead, setExpandedLead] = useState(null)
   
-  // Lista de Nichos pré-definidos
+  // Lista de Nichos prÃ©-definidos
   const nichesList = [
-    "Psicólogo", "Dentista", "Pizzaria", "Hamburgueria", "Clínica de Estética", 
-    "Advogado", "Contador", "Oficina Mecânica", "Pet Shop", "Academia", 
-    "Confeitaria", "Salão de Beleza", "Imobiliária", "Arquitetura", "Fisioterapia"
+    "PsicÃ³logo", "Dentista", "Pizzaria", "Hamburgueria", "ClÃ­nica de EstÃ©tica", 
+    "Advogado", "Contador", "Oficina MecÃ¢nica", "Pet Shop", "Academia", 
+    "Confeitaria", "SalÃ£o de Beleza", "ImobiliÃ¡ria", "Arquitetura", "Fisioterapia"
   ].sort()
 
   const [filters, setFilters] = useState({
@@ -59,7 +59,7 @@ function App() {
   const uniqueNichesInDatabase = useMemo(() => {
     const counts = {};
     leads.forEach(l => {
-      const n = l.niche?.trim() || 'Não Classificado';
+      const n = l.niche?.trim() || 'NÃ£o Classificado';
       counts[n] = (counts[n] || 0) + 1;
     });
     
@@ -91,7 +91,7 @@ function App() {
     const { data, error } = await supabase
       .from('gmb_leads')
       .select('*')
-      .order('total_score', { ascending: false }) // Ordena por prioridade automática
+      .order('total_score', { ascending: false }) // Ordena por prioridade automÃ¡tica
     
     if (data) setLeads(data)
     setLoading(false)
@@ -142,7 +142,7 @@ function App() {
                           lead.niche?.toLowerCase().includes(searchTerm.toLowerCase());
       const leadStatus = lead.status || 'Novo';
       const matchStatus = statusFilter === 'Todos' ? leadStatus !== 'Descartado' : leadStatus === statusFilter;
-      const currentNiche = lead.niche?.trim() || 'Não Classificado';
+      const currentNiche = lead.niche?.trim() || 'NÃ£o Classificado';
       const matchNiche = nicheFilter === 'Todos' || currentNiche === nicheFilter;
       return matchSearch && matchStatus && matchNiche;
     });
@@ -156,10 +156,10 @@ function App() {
           animate={{ opacity: 1, y: 0 }}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}
         >
-          <img src="https://fav.farm/🚀" alt="logo" style={{ width: '40px' }} />
+          <img src="https://fav.farm/ðŸš€" alt="logo" style={{ width: '40px' }} />
           <h1>GMB Lead Capturer <span className="badge-pro">PRO</span></h1>
         </motion.div>
-        <p className="subtitle">Ranking Estratégico & Inteligência Artificial para Prospecção Local.</p>
+        <p className="subtitle">Ranking EstratÃ©gico & InteligÃªncia Artificial para ProspecÃ§Ã£o Local.</p>
       </header>
 
       <motion.div className="glass search-card" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
@@ -185,12 +185,12 @@ function App() {
               </select>
             </div>
             <div className="input-group">
-              <label><MapPin size={14} /> Região Específica</label>
+              <label><MapPin size={14} /> RegiÃ£o EspecÃ­fica</label>
               <input placeholder="Ex: Centro..." value={filters.region} onChange={e => setFilters({...filters, region: e.target.value})} />
             </div>
           </div>
           <button type="submit" className="primary" disabled={searching || scrapingProgress}>
-            {searching ? <><Loader2 className="loading-spinner" /> Conectando...</> : scrapingProgress ? <><Loader2 className="loading-spinner" /> Capturando com IA...</> : <><Plus size={18} /> Iniciar Prospecção</>}
+            {searching ? <><Loader2 className="loading-spinner" /> Conectando...</> : scrapingProgress ? <><Loader2 className="loading-spinner" /> Capturando com IA...</> : <><Plus size={18} /> Iniciar ProspecÃ§Ã£o</>}
           </button>
         </form>
       </motion.div>
@@ -209,11 +209,11 @@ function App() {
             </select>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
               <option value="Todos">Sem Descartados</option>
-              <option value="Novo">✨ Novo</option>
-              <option value="Em Contato">💬 Contato</option>
-              <option value="Agendado">📅 Agendado</option>
-              <option value="Fechado">✅ Cliente</option>
-              <option value="Descartado">❌ Descartado</option>
+              <option value="Novo">âœ¨ Novo</option>
+              <option value="Em Contato">ðŸ’¬ Contato</option>
+              <option value="Agendado">ðŸ“… Agendado</option>
+              <option value="Fechado">âœ… Cliente</option>
+              <option value="Descartado">âŒ Descartado</option>
             </select>
           </div>
         </div>
@@ -235,7 +235,7 @@ function App() {
                       <span className={`priority-badge ${lead.priority?.toLowerCase()}`}>
                         {lead.priority || 'Baixa'}
                       </span>
-                      {lead.is_claimed === false && <span className="danger-badge">Não Reivindicado</span>}
+                      {lead.is_claimed === false && <span className="danger-badge">NÃ£o Reivindicado</span>}
                     </div>
                   </div>
                   <select 
@@ -243,16 +243,16 @@ function App() {
                     onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
                     className="status-select"
                   >
-                    <option value="Novo">✨ Novo</option>
-                    <option value="Em Contato">💬 Contato</option>
-                    <option value="Agendado">📅 Reunião</option>
-                    <option value="Fechado">✅ Fechado</option>
-                    <option value="Descartado">❌ Descartar</option>
+                    <option value="Novo">âœ¨ Novo</option>
+                    <option value="Em Contato">ðŸ’¬ Contato</option>
+                    <option value="Agendado">ðŸ“… ReuniÃ£o</option>
+                    <option value="Fechado">âœ… Fechado</option>
+                    <option value="Descartado">âŒ Descartar</option>
                   </select>
                 </div>
 
                 <div className="score-summary">
-                  <div className="score-item" title="Otimização GMB">
+                  <div className="score-item" title="OtimizaÃ§Ã£o GMB">
                     <span>GMB</span>
                     <div className="score-bar"><div className="fill" style={{ width: `${lead.gmb_score}%`, background: getScoreColor(lead.gmb_score) }} /></div>
                   </div>
@@ -276,7 +276,7 @@ function App() {
                   <div className="social-links-row">
                     {lead.website ? (
                       <a href={lead.website} target="_blank" className="link-tag site">
-                        <Globe size={14} /> {lead.is_business_site ? 'Google Site' : 'Site Próprio'}
+                        <Globe size={14} /> {lead.is_business_site ? 'Google Site' : 'Site PrÃ³prio'}
                       </a>
                     ) : <span className="link-tag none"><AlertCircle size={14} /> Sem Site</span>}
                     
@@ -296,7 +296,7 @@ function App() {
                 {lead.ai_diagnosis && (
                   <div className="ai-analysis-box">
                     <div className="ai-header">
-                      <div className="ai-title"><Loader2 size={14} /> Análise Estratégica IA</div>
+                      <div className="ai-title"><Loader2 size={14} /> AnÃ¡lise EstratÃ©gica IA</div>
                       <span className="recommendation-badge">{lead.ai_recommendation}</span>
                     </div>
                     <p className="ai-diagnosis">"{lead.ai_diagnosis}"</p>
@@ -306,7 +306,7 @@ function App() {
                         setExpandedLead(expandedLead === lead.id ? null : lead.id)
                       }}
                     >
-                      {expandedLead === lead.id ? 'Fechar Pitch' : '💡 Ver Script de Abordagem'}
+                      {expandedLead === lead.id ? 'Fechar Pitch' : 'ðŸ’¡ Ver Script de Abordagem'}
                     </button>
                     {expandedLead === lead.id && (
                       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="pitch-content">
@@ -330,5 +330,3 @@ function App() {
 }
 
 export default App
-/ /   T r i g g e r   R e d e p l o y :   0 4 / 2 2 / 2 0 2 6   1 0 : 5 6 : 2 5  
- 
